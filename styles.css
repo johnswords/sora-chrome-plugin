@@ -1,0 +1,41 @@
+/* Sora Follow Tracker - Content Styles */
+
+/* Badge styling is inline in content.js for performance */
+/* This file can be extended for additional custom styling */
+
+.sft-follow-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 18px !important;
+  height: 18px !important;
+  border-radius: 50% !important;
+  font-size: 12px !important;
+  font-weight: bold !important;
+  margin-left: 6px !important;
+  vertical-align: middle !important;
+  flex-shrink: 0 !important;
+}
+
+.sft-follow-badge[data-follows="true"] {
+  background: #10b981 !important;
+  color: white !important;
+}
+
+.sft-follow-badge[data-follows="false"] {
+  background: #dc2626 !important;
+  color: white !important;
+}
+
+.sft-dnf-indicator {
+  color: #dc2626 !important;
+  font-weight: 600 !important;
+  margin-left: 4px !important;
+}
+
+/* Ensure badges don't break layout */
+.sft-follow-badge,
+.sft-dnf-indicator {
+  pointer-events: none !important;
+  user-select: none !important;
+}

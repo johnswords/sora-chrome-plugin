@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Icon Generator</title>
+</head>
+<body>
+  <h2>Sora Follow Tracker - Icon Generator</h2>
+  <p>Open this file in a browser and check the console for generated icon data URIs.</p>
+  <p>Save the canvas images as icon16.png, icon48.png, and icon128.png</p>
+
+  <div>
+    <h3>16x16</h3>
+    <canvas id="icon16" width="16" height="16"></canvas>
+  </div>
+
+  <div>
+    <h3>48x48</h3>
+    <canvas id="icon48" width="48" height="48"></canvas>
+  </div>
+
+  <div>
+    <h3>128x128</h3>
+    <canvas id="icon128" width="128" height="128"></canvas>
+  </div>
+
+  <script>
+    function drawIcon(canvas) {
+      const ctx = canvas.getContext('2d');
+      const size = canvas.width;
+
+      // Background gradient
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, '#3b82f6');
+      gradient.addColorStop(1, '#1e40af');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+
+      // Draw checkmark and X symbols
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = Math.max(2, size / 16);
+      ctx.lineCap = 'round';
+
+      const padding = size * 0.2;
+      const symbolSize = size * 0.3;
+
+      // Checkmark (top right)
+      ctx.beginPath();
+      ctx.moveTo(size - padding - symbolSize, padding + symbolSize / 2);
+      ctx.lineTo(size - padding - symbolSize / 2, padding + symbolSize);
+      ctx.lineTo(size - padding, padding);
+      ctx.stroke();
+
+      // X (bottom left)
+      ctx.beginPath();
+      ctx.moveTo(padding, size - padding - symbolSize);
+      ctx.lineTo(padding + symbolSize, size - padding);
+      ctx.moveTo(padding, size - padding);
+      ctx.lineTo(padding + symbolSize, size - padding - symbolSize);
+      ctx.stroke();
+    }
+
+    // Generate all icons
+    ['icon16', 'icon48', 'icon128'].forEach(id => {
+      const canvas = document.getElementById(id);
+      drawIcon(canvas);
+
+      // Convert to downloadable link
+      const link = document.createElement('a');
+      link.download = id + '.png';
+      link.href = canvas.toDataURL('image/png');
+      link.textContent = 'Download ' + id + '.png';
+      canvas.parentElement.appendChild(document.createElement('br'));
+      canvas.parentElement.appendChild(link);
+
+      console.log(id + ' data URI:', canvas.toDataURL('image/png'));
+    });
+  </script>
+</body>
+</html>

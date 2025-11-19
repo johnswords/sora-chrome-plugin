@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sora Follow Tracker</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 380px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #1a1a1a;
+      color: #ffffff;
+    }
+
+    .container {
+      padding: 16px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #333;
+    }
+
+    .header h1 {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .nav-tabs {
+      display: flex;
+      gap: 8px;
+    }
+
+    .nav-tab {
+      padding: 6px 12px;
+      background: #2a2a2a;
+      border: none;
+      border-radius: 6px;
+      color: #999;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+
+    .nav-tab.active {
+      background: #3b82f6;
+      color: white;
+    }
+
+    .nav-tab:hover {
+      background: #333;
+    }
+
+    .nav-tab.active:hover {
+      background: #2563eb;
+    }
+
+    .view {
+      display: none;
+    }
+
+    .view.active {
+      display: block;
+    }
+
+    .section {
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #e5e5e5;
+    }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #2a2a2a;
+    }
+
+    .setting-row:last-child {
+      border-bottom: none;
+    }
+
+    .setting-label {
+      font-size: 13px;
+      color: #d1d1d1;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      background: #4a4a4a;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .toggle-switch.active {
+      background: #3b82f6;
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      transition: left 0.3s;
+    }
+
+    .toggle-switch.active::after {
+      left: 22px;
+    }
+
+    .button {
+      width: 100%;
+      padding: 12px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .button:hover {
+      background: #2563eb;
+    }
+
+    .button:disabled {
+      background: #4a4a4a;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .button.secondary {
+      background: #2a2a2a;
+    }
+
+    .button.secondary:hover {
+      background: #333;
+    }
+
+    .status-message {
+      margin-top: 12px;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .status-message.success {
+      background: rgba(16, 185, 129, 0.2);
+      color: #10b981;
+    }
+
+    .status-message.error {
+      background: rgba(220, 38, 38, 0.2);
+      color: #dc2626;
+    }
+
+    .status-message.info {
+      background: rgba(59, 130, 246, 0.2);
+      color: #3b82f6;
+    }
+
+    .stat-card {
+      background: #2a2a2a;
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+    }
+
+    .stat-row:not(:last-child) {
+      border-bottom: 1px solid #3a3a3a;
+    }
+
+    .stat-label {
+      font-size: 13px;
+      color: #999;
+    }
+
+    .stat-value {
+      font-size: 16px;
+      font-weight: 600;
+      color: #3b82f6;
+    }
+
+    .user-list {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .user-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px;
+      background: #2a2a2a;
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+
+    .user-info {
+      flex: 1;
+    }
+
+    .user-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: #e5e5e5;
+    }
+
+    .user-username {
+      font-size: 12px;
+      color: #999;
+    }
+
+    .user-stats {
+      text-align: right;
+      font-size: 12px;
+      color: #666;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      font-size: 10px;
+      margin-left: 6px;
+    }
+
+    .badge.follows {
+      background: #10b981;
+      color: white;
+    }
+
+    .badge.no-follow {
+      background: #dc2626;
+      color: white;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #999;
+    }
+
+    .spinner {
+      border: 2px solid #333;
+      border-top: 2px solid #3b82f6;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #1a1a1a;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #4a4a4a;
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Sora Tracker</h1>
+      <div class="nav-tabs">
+        <button class="nav-tab active" data-view="export">Export</button>
+        <button class="nav-tab" data-view="report">Report</button>
+      </div>
+    </div>
+
+    <!-- Export View -->
+    <div id="export-view" class="view active">
+      <div class="section">
+        <div class="section-title">Settings</div>
+        <div class="setting-row">
+          <span class="setting-label">Auto-paginate all videos</span>
+          <div class="toggle-switch active" id="auto-paginate-toggle"></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <button class="button" id="export-videos-btn">
+          Copy Videos to Clipboard
+        </button>
+        <div id="export-status" class="status-message" style="display: none;"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Quick Stats</div>
+        <div class="stat-card">
+          <div class="stat-row">
+            <span class="stat-label">Users Tracked</span>
+            <span class="stat-value" id="quick-total">0</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Mutual Follows</span>
+            <span class="stat-value" id="quick-followers">0</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Non-Followers</span>
+            <span class="stat-value" id="quick-non-followers">0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Report View -->
+    <div id="report-view" class="view">
+      <div class="section">
+        <div class="section-title">Overview</div>
+        <div class="stat-card">
+          <div class="stat-row">
+            <span class="stat-label">Total Tracked</span>
+            <span class="stat-value" id="report-total">0</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Follow You Back</span>
+            <span class="stat-value" id="report-followers">0</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Don't Follow Back</span>
+            <span class="stat-value" id="report-non-followers">0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Top Users Who Follow You</div>
+        <div class="user-list" id="top-followers-list">
+          <div class="loading">
+            <div class="spinner"></div>
+            Loading data...
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Top Users Who Don't Follow Back</div>
+        <div class="user-list" id="top-non-followers-list">
+          <div class="loading">
+            <div class="spinner"></div>
+            Loading data...
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
