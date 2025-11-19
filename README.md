@@ -21,6 +21,7 @@ A Chrome extension that tracks mutual follow relationships on Sora (sora.chatgpt
 - **Top Non-Followers**: Identify influential users who don't follow back
 - **Engagement Stats**: Track total users, mutual follows, and non-followers
 - **Quick Stats**: View summary metrics in the export view
+- **Full Analysis Export**: Copy the entire mutual/non-follow list or download a CSV with one click
 
 ## Installation
 
@@ -103,6 +104,9 @@ Video File: Direct video URL
    - **Top Users Who Follow You**: Ranked by follower count
    - **Top Users Who Don't Follow Back**: Ranked by follower count
 4. Click any user card to open their profile
+5. Scroll to **Full Analysis Export** and choose:
+   - **Copy Full Follow Report** for a clipboard-friendly text summary of every tracked account
+   - **Download Follow Report** for a CSV saved to your Downloads folder (includes category, follower counts, timestamps)
 
 ### Settings
 

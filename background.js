@@ -27,7 +27,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
     return true; // Keep channel open for async response
   } else if (request.type === 'GET_REPORT_DATA') {
-    getReportData().then(report => {
+    getReportData(request.includeUsers === true).then(report => {
       sendResponse({ report });
     });
     return true;
@@ -87,7 +87,7 @@ async function getFollowData(userId) {
 }
 
 // Get report data (top followers, follows, non-follows)
-async function getReportData() {
+async function getReportData(includeUsers = false) {
   const { followData = {} } = await chrome.storage.local.get('followData');
 
   const users = Object.values(followData);
@@ -97,7 +97,7 @@ async function getReportData() {
   const nonFollowers = users.filter(u => !u.follows_you).sort((a, b) => b.follower_count - a.follower_count);
   const topEngagement = users.sort((a, b) => b.post_count - a.post_count);
 
-  return {
+  const baseReport = {
     totalTracked: users.length,
     followersCount: followers.length,
     nonFollowersCount: nonFollowers.length,
@@ -106,6 +106,14 @@ async function getReportData() {
     topEngagement: topEngagement.slice(0, 10),
     lastSync: (await chrome.storage.local.get('lastSync')).lastSync || 0
   };
+
+  if (includeUsers) {
+    baseReport.followers = followers;
+    baseReport.nonFollowers = nonFollowers;
+    baseReport.allUsers = users;
+  }
+
+  return baseReport;
 }
 
 // Update settings
