@@ -1,5 +1,7 @@
 // Popup Script for Sora Follow Tracker
 
+const numberFormatter = new Intl.NumberFormat();
+
 document.addEventListener('DOMContentLoaded', async () => {
   // Initialize UI
   await loadSettings();
@@ -20,6 +22,10 @@ function setupEventListeners() {
 
   // Export videos button
   document.getElementById('export-videos-btn').addEventListener('click', exportVideos);
+
+  // Full follow report actions
+  document.getElementById('copy-follow-report-btn').addEventListener('click', copyFullFollowReport);
+  document.getElementById('download-follow-report-btn').addEventListener('click', downloadFullFollowReport);
 }
 
 // Switch between views
@@ -289,4 +295,172 @@ function createUserItem(user, followsYou) {
   });
 
   return item;
+}
+
+// -------- Full Analysis Helpers --------
+
+async function copyFullFollowReport() {
+  const button = document.getElementById('copy-follow-report-btn');
+  button.disabled = true;
+  showFollowReportStatus('info', 'Building full analysis...');
+
+  try {
+    const report = await fetchFullFollowReport();
+
+    if (!report || (!report.followers?.length && !report.nonFollowers?.length)) {
+      showFollowReportStatus('error', 'No follow data yet. Visit your following/followers pages first.');
+      return;
+    }
+
+    const formatted = formatFollowReportText(report);
+    await navigator.clipboard.writeText(formatted);
+    showFollowReportStatus('success', `Copied ${report.totalTracked} account(s) to clipboard`);
+  } catch (error) {
+    console.error('Full report copy failed:', error);
+    showFollowReportStatus('error', `Copy failed: ${error.message}`);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function downloadFullFollowReport() {
+  const button = document.getElementById('download-follow-report-btn');
+  button.disabled = true;
+  showFollowReportStatus('info', 'Packaging CSV...');
+
+  try {
+    const report = await fetchFullFollowReport();
+
+    if (!report || (!report.followers?.length && !report.nonFollowers?.length)) {
+      showFollowReportStatus('error', 'No follow data yet. Visit your following/followers pages first.');
+      return;
+    }
+
+    const csv = formatFollowReportCsv(report);
+    const timestamp = new Date(report.lastSync || Date.now()).toISOString().replace(/[:.]/g, '-');
+    const filename = `sora-follow-report-${timestamp}.csv`;
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+    showFollowReportStatus('success', `Saved ${report.totalTracked} rows to ${filename}`);
+  } catch (error) {
+    console.error('Full report download failed:', error);
+    showFollowReportStatus('error', `Download failed: ${error.message}`);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function fetchFullFollowReport() {
+  const response = await chrome.runtime.sendMessage({
+    type: 'GET_REPORT_DATA',
+    includeUsers: true
+  });
+  return response?.report;
+}
+
+function formatFollowReportText(report) {
+  const lines = [];
+  const exportedAt = formatTimestamp(report.lastSync || Date.now());
+
+  lines.push('Sora Follow Analysis');
+  lines.push(`Exported: ${exportedAt}`);
+  lines.push(`Total tracked: ${report.totalTracked}`);
+  lines.push(`Mutual follows: ${report.followersCount}`);
+  lines.push(`Non-followers: ${report.nonFollowersCount}`);
+  lines.push('');
+
+  lines.push('=== Mutual Follows ===');
+  (report.followers || []).forEach((user, index) => {
+    lines.push(`${index + 1}. ${formatUserLine(user)}`);
+  });
+  if (!(report.followers || []).length) {
+    lines.push('None recorded yet');
+  }
+
+  lines.push('');
+  lines.push('=== Users Who Do Not Follow Back ===');
+  (report.nonFollowers || []).forEach((user, index) => {
+    lines.push(`${index + 1}. ${formatUserLine(user)}`);
+  });
+  if (!(report.nonFollowers || []).length) {
+    lines.push('None recorded yet');
+  }
+
+  return lines.join('\n');
+}
+
+function formatUserLine(user) {
+  const name = user.display_name || 'Unknown';
+  const username = user.username ? `@${user.username}` : '';
+  const followers = formatNumber(user.follower_count);
+  const following = formatNumber(user.following_count);
+  const posts = formatNumber(user.post_count);
+  return `${name} ${username} — ${followers} followers · ${following} following · ${posts} posts`;
+}
+
+function formatFollowReportCsv(report) {
+  const rows = [];
+  rows.push(['category', 'display_name', 'username', 'follower_count', 'following_count', 'post_count', 'last_seen']);
+
+  const pushRows = (category, users = []) => {
+    users.forEach(user => {
+      rows.push([
+        category,
+        user.display_name || '',
+        user.username || '',
+        user.follower_count ?? '',
+        user.following_count ?? '',
+        user.post_count ?? '',
+        user.last_updated ? new Date(user.last_updated).toISOString() : ''
+      ]);
+    });
+  };
+
+  pushRows('mutual_follow', report.followers || []);
+  pushRows('not_following_back', report.nonFollowers || []);
+
+  return rows.map(columns => columns.map(toCsvValue).join(',')).join('\n');
+}
+
+function toCsvValue(value) {
+  const str = value === null || value === undefined ? '' : String(value);
+  if (/[",\n]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function formatNumber(value) {
+  return numberFormatter.format(value || 0);
+}
+
+function formatTimestamp(timestamp) {
+  try {
+    return new Date(timestamp).toLocaleString();
+  } catch (e) {
+    return 'Unknown';
+  }
+}
+
+function showFollowReportStatus(type, message) {
+  const statusEl = document.getElementById('follow-report-status');
+  if (!statusEl) return;
+  statusEl.className = `status-message ${type}`;
+  statusEl.textContent = message;
+  statusEl.style.display = 'block';
+
+  if (type === 'success') {
+    setTimeout(() => {
+      statusEl.style.display = 'none';
+    }, 3500);
+  }
 }

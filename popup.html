@@ -84,6 +84,13 @@
       color: #e5e5e5;
     }
 
+    .section-note {
+      font-size: 12px;
+      color: #a1a1aa;
+      margin-bottom: 10px;
+      line-height: 1.4;
+    }
+
     .setting-row {
       display: flex;
       align-items: center;
@@ -146,6 +153,13 @@
 
     .button:hover {
       background: #2563eb;
+    }
+
+    .export-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 12px;
     }
 
     .button:disabled {
@@ -393,6 +407,20 @@
             <div class="spinner"></div>
             Loading data...
           </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Full Analysis Export</div>
+        <p class="section-note">Need every account? Copy everything directly to your clipboard or drop a CSV into your Downloads folder.</p>
+        <div class="export-actions">
+          <button class="button secondary" id="copy-follow-report-btn">
+            Copy Full Follow Report
+          </button>
+          <button class="button secondary" id="download-follow-report-btn">
+            Download Follow Report
+          </button>
+          <div id="follow-report-status" class="status-message" style="display:none;"></div>
         </div>
       </div>
     </div>
