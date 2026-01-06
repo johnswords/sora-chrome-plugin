@@ -7,6 +7,30 @@
 
   const CSS_CLASS_BADGE = 'sft-follow-badge';
   const CSS_CLASS_DNF = 'sft-dnf-indicator';
+  const MAX_USER_LISTING_ITEMS = 500;
+  const PAGINATION_DELAY_MS = 200;
+
+  let badgeTimeoutId = null;
+  let badgeObserver = null;
+  let urlObserver = null;
+  let observedRoot = null;
+  let initializeInFlight = false;
+  let initializeQueued = false;
+
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  function isValidUserItem(item) {
+    if (!item || typeof item !== 'object') return false;
+    const hasUserId = typeof item.user_id === 'string' || typeof item.user_id === 'number';
+    return hasUserId && typeof item.username === 'string' && typeof item.follows_you === 'boolean';
+  }
+
+  function normalizeUserItems(items) {
+    const limited = items.slice(0, MAX_USER_LISTING_ITEMS);
+    return limited.filter(isValidUserItem);
+  }
 
   // Inject a page-context hook so we can observe the app's own fetch() calls.
   function injectPageHook() {
@@ -33,11 +57,19 @@
       console.log('[SFT Content] Received message from page:', data);
 
       if (data.type === 'USER_LISTING' && Array.isArray(data.items)) {
-        console.log('[SFT Content] Forwarding', data.items.length, 'users to background');
+        if (data.items.length > MAX_USER_LISTING_ITEMS) {
+          console.warn('[SFT Content] Truncating large user listing:', data.items.length);
+        }
+        const validItems = normalizeUserItems(data.items);
+        if (validItems.length === 0) {
+          console.warn('[SFT Content] No valid user records in USER_LISTING payload');
+          return;
+        }
+        console.log('[SFT Content] Forwarding', validItems.length, 'users to background');
         try {
           chrome.runtime.sendMessage({
             type: 'UPDATE_FOLLOW_DATA',
-            users: data.items
+            users: validItems
           });
         } catch (e) {
           console.warn('[SFT Content] Extension context invalidated, data not saved:', e.message);
@@ -64,7 +96,8 @@
     const allVideos = [];
     let cursor = null;
     let pageCount = 0;
-    const maxPages = autoPaginate ? 100 : 1;
+    const shouldPaginate = autoPaginate === true;
+    const maxPages = shouldPaginate ? 100 : 1;
 
     do {
       const url = cursor
@@ -95,7 +128,11 @@
       cursor = data.cursor;
       pageCount++;
 
-    } while (cursor && autoPaginate && pageCount < maxPages);
+      if (cursor && shouldPaginate && pageCount < maxPages && PAGINATION_DELAY_MS > 0) {
+        await sleep(PAGINATION_DELAY_MS);
+      }
+
+    } while (cursor && shouldPaginate && pageCount < maxPages);
 
     return allVideos;
   }
@@ -234,6 +271,15 @@
   async function addUserListingBadges() {
     // Find all user cards/items
     const userElements = document.querySelectorAll('[class*="user"], [class*="profile"], [href*="/profile/"]');
+    if (userElements.length === 0) return;
+
+    const { followData = {} } = await chrome.storage.local.get('followData');
+    const usersByUsername = new Map();
+    Object.values(followData).forEach(user => {
+      if (user?.username) {
+        usersByUsername.set(user.username, user);
+      }
+    });
 
     for (const element of userElements) {
       // Skip if already processed
@@ -250,15 +296,8 @@
 
       if (!username) continue;
 
-      // Find the user data from our cache
-      const allData = await new Promise(resolve => {
-        chrome.storage.local.get('followData', result => {
-          resolve(result.followData || {});
-        });
-      });
-
       // Find user by username
-      const userData = Object.values(allData).find(u => u.username === username);
+      const userData = usersByUsername.get(username);
 
       if (userData) {
         // Find display name element within this user card
@@ -342,46 +381,68 @@
     const username = pathParts[pathParts.indexOf('profile') + 1];
 
     if (username) {
-      const allData = await new Promise(resolve => {
-        chrome.storage.local.get('followData', result => {
-          resolve(result.followData || {});
-        });
-      });
-
-      const user = Object.entries(allData).find(([_, data]) => data.username === username);
+      const { followData = {} } = await chrome.storage.local.get('followData');
+      const user = Object.entries(followData).find(([_, data]) => data.username === username);
       if (user) return user[0];
     }
 
     return null;
   }
 
-  // Observe DOM changes to add badges to dynamically loaded content
-  const observer = new MutationObserver((mutations) => {
-    // Debounce the badge addition
-    clearTimeout(window.badgeTimeout);
-    window.badgeTimeout = setTimeout(() => {
+  function scheduleBadgeUpdate() {
+    if (badgeTimeoutId) clearTimeout(badgeTimeoutId);
+    badgeTimeoutId = setTimeout(() => {
       addFollowBadges();
     }, 500);
-  });
+  }
+
+  function ensureBadgeObserver(root) {
+    if (!root) return;
+    if (!badgeObserver) {
+      badgeObserver = new MutationObserver(() => {
+        scheduleBadgeUpdate();
+      });
+    }
+
+    if (observedRoot !== root) {
+      badgeObserver.disconnect();
+      observedRoot = root;
+      badgeObserver.observe(root, {
+        childList: true,
+        subtree: true
+      });
+    }
+  }
 
   // Start observing when page loads
   async function initialize() {
-    // Auto-fetch follow data if cache is empty (first time use)
-    await autoFetchFollowData();
+    if (initializeInFlight) {
+      initializeQueued = true;
+      return;
+    }
+    initializeInFlight = true;
+    try {
+      // Auto-fetch follow data if cache is empty (first time use)
+      await autoFetchFollowData();
 
-    // Add badges to current page
-    addFollowBadges();
+      // Add badges to current page
+      await addFollowBadges();
 
-    // Observe the main content area for changes
-    const mainContent = document.querySelector('main') || document.body;
-    observer.observe(mainContent, {
-      childList: true,
-      subtree: true
-    });
+      // Observe the main content area for changes
+      const mainContent = document.querySelector('main') || document.body;
+      ensureBadgeObserver(mainContent);
+    } finally {
+      initializeInFlight = false;
+      if (initializeQueued) {
+        initializeQueued = false;
+        initialize();
+      }
+    }
   }
 
   // Setup URL watcher for SPA navigation (after DOM is ready)
   function setupUrlWatcher() {
+    if (urlObserver) return;
     if (!document.body) {
       console.warn('[SFT Content] document.body not available yet, deferring URL watcher');
       setTimeout(setupUrlWatcher, 100);
@@ -389,13 +450,14 @@
     }
 
     let lastUrl = location.href;
-    new MutationObserver(() => {
+    urlObserver = new MutationObserver(() => {
       const currentUrl = location.href;
       if (currentUrl !== lastUrl) {
         lastUrl = currentUrl;
         setTimeout(initialize, 1000);
       }
-    }).observe(document.body, { subtree: true, childList: true });
+    });
+    urlObserver.observe(document.body, { subtree: true, childList: true });
     console.log('[SFT Content] URL watcher setup complete');
   }
 

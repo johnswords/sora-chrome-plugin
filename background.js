@@ -46,17 +46,39 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 // Update follow data from intercepted API responses
 async function updateFollowData(users) {
+  if (!Array.isArray(users) || users.length === 0) {
+    console.warn('[SFT Background] updateFollowData called without user data');
+    return;
+  }
+
+  const validUsers = users.filter(user => {
+    if (!user || typeof user !== 'object') return false;
+    const hasUserId = typeof user.user_id === 'string' || typeof user.user_id === 'number';
+    const hasUsername = typeof user.username === 'string';
+    const hasFollowFlag = typeof user.follows_you === 'boolean';
+    return hasUserId && hasUsername && hasFollowFlag;
+  });
+
+  if (validUsers.length === 0) {
+    console.warn('[SFT Background] No valid users to update');
+    return;
+  }
+
   const { followData = {} } = await chrome.storage.local.get('followData');
   const timestamp = Date.now();
 
-  users.forEach(user => {
+  validUsers.forEach(user => {
+    const displayName = typeof user.display_name === 'string' && user.display_name.trim().length > 0
+      ? user.display_name
+      : user.username;
+
     followData[user.user_id] = {
       username: user.username,
-      display_name: user.display_name,
+      display_name: displayName,
       follows_you: user.follows_you,
-      follower_count: user.follower_count,
-      following_count: user.following_count,
-      post_count: user.post_count,
+      follower_count: typeof user.follower_count === 'number' ? user.follower_count : 0,
+      following_count: typeof user.following_count === 'number' ? user.following_count : 0,
+      post_count: typeof user.post_count === 'number' ? user.post_count : 0,
       last_updated: timestamp
     };
   });
